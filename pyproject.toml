@@ -1,0 +1,12 @@
+[project]
+name = "simulador-so"
+version = "0.1.0"
+description = "Simulador de asignacion de memoria (MVT Best-Fit) y planificacion SRTF"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100

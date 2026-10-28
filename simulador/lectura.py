@@ -21,7 +21,7 @@ def leer_procesos(ruta: str) -> list[Proceso]:
         partes = [p.strip() for p in linea.split(",")]
         if len(partes) != 4:
             raise ErrorLectura(
-              f"Linea {numero}: se esperaban 4 campos y hay {len(partes)}"
+              f"Línea {numero}: se esperaban 4 campos y hay {len(partes)}"
             )
         id_proceso, texto_tam, texto_arribo, texto_irrup = partes
         try:
@@ -37,7 +37,7 @@ def leer_procesos(ruta: str) -> list[Proceso]:
         raise ErrorLectura(f"El archivo '{ruta}' no contiene procesos")
       return procesos
   except FileNotFoundError:
-    raise ErrorLectura(f"El archivo'{ruta}' no existe")
+    raise ErrorLectura(f"El archivo '{ruta}' no existe")
   except PermissionError: 
     raise ErrorLectura(f"Sin permisos para leer '{ruta}'")
   except UnicodeDecodeError:

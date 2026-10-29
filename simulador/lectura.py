@@ -1,3 +1,4 @@
+from typing import List 
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -10,7 +11,7 @@ class Proceso:
 class ErrorLectura(Exception):
   """Error al abrir o leer el archivo de procesos."""
 
-def leer_procesos(ruta: str) -> list[Proceso]:
+def leer_procesos(ruta: str) -> List[Proceso]:
   try: 
     with open(ruta, encoding="utf-8") as archivo:
       procesos = []

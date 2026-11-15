@@ -15,7 +15,7 @@ class ErrorLectura(Exception):
 
 def leer_procesos(ruta: str) -> list[Proceso]:
   try: 
-    with open(ruta, encoding="utf-8") as archivo:
+    with open(ruta, encoding="utf-8-sig") as archivo:
       procesos = []
       numeros_linea = []
       for numero, linea in enumerate(archivo, start=1):
@@ -35,7 +35,7 @@ def leer_procesos(ruta: str) -> list[Proceso]:
         except ValueError:
           raise ErrorLectura(
             f"Línea {numero}: Tamaño, Arribo e Irrupción deben ser números enteros"
-          )
+          ) from None
         procesos.append(Proceso(id_proceso, tamano, arribo, irrupcion))
         numeros_linea.append(numero)
       if not procesos:
@@ -43,17 +43,19 @@ def leer_procesos(ruta: str) -> list[Proceso]:
       validar_procesos(procesos, numeros_linea)
       return procesos
   except FileNotFoundError:
-    raise ErrorLectura(f"El archivo '{ruta}' no existe")
+    raise ErrorLectura(f"El archivo '{ruta}' no existe") from None
   except PermissionError: 
-    raise ErrorLectura(f"Sin permisos para leer '{ruta}'")
+    raise ErrorLectura(f"Sin permisos para leer '{ruta}'") from None
   except UnicodeDecodeError:
-    raise ErrorLectura(f"'{ruta}' no es un archivo de texto valido")
+    raise ErrorLectura(f"'{ruta}' no es un archivo de texto válido") from None
+  except OSError as error:
+    raise ErrorLectura(f"No se pudo leer '{ruta}': {error.strerror}") from None
 
 def validar_procesos(procesos: list[Proceso], numeros_linea: list[int]) -> None:
   errores = []
   if len(procesos) > MAX_PROCESOS:
     errores.append(
-      f"El archivo tiene {len(procesos)}, el máximo es {MAX_PROCESOS}"
+      f"El archivo tiene {len(procesos)} procesos, el máximo es {MAX_PROCESOS}"
     )
 
   lineas_por_id = {}
@@ -84,4 +86,3 @@ def validar_procesos(procesos: list[Proceso], numeros_linea: list[int]) -> None:
       )
   if errores:
     raise ErrorLectura("\n".join(errores))
-                

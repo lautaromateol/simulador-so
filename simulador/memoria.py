@@ -34,6 +34,20 @@ class Memoria:
   def huecos(self) -> list[Particion]:
     return [p for p in self.particiones if p.estado == EstadoParticion.LIBRE]
 
+  def mejor_hueco(self, tamano: int) -> Particion | None:
+    if tamano <= 0:
+      raise ErrorMemoria(f"El tamaño debe ser mayor que 0 (recibido: {tamano})")
+    candidatos = [h for h in self.huecos() if h.tamano >= tamano]
+    if not candidatos:
+      return None
+    return min(candidatos, key=lambda h: (h.tamano, h.inicio))
+
+  def asig_bestfit(self, tamano: int, id_proceso: str) -> Particion | None:
+    hueco = self.mejor_hueco(tamano)
+    if hueco is None:
+      return None
+    return self.ocupar(hueco.id, tamano, id_proceso)
+
   def ocupar(self, id_hueco: int, tamano: int, id_proceso: str) -> Particion:
     if tamano <= 0:
       raise ErrorMemoria(f"El tamaño debe ser mayor que 0 (recibido: {tamano})")
@@ -63,6 +77,35 @@ class Memoria:
     hueco.proceso = id_proceso
     self.verificar_invariante()
     return hueco
+
+  def liberar(self, id_particion: int) -> Particion:
+    if id_particion == ID_SO:
+      raise ErrorMemoria("La partición del SO no se puede liberar")
+    for indice, particion in enumerate(self.particiones):
+      if particion.id == id_particion:
+        break
+    else:
+      raise ErrorMemoria(f"No existe la partición {id_particion}")
+    if particion.estado != EstadoParticion.OCUPADA:
+      raise ErrorMemoria(f"La partición {id_particion} ya está libre")
+      
+    particion.estado = EstadoParticion.LIBRE
+    particion.proceso = None
+
+    if indice + 1 < len(self.particiones):
+      siguiente = self.particiones[indice + 1]
+      if siguiente.estado == EstadoParticion.LIBRE:
+        particion.tamano += siguiente.tamano
+        del self.particiones[indice + 1]
+
+    anterior = self.particiones[indice - 1]
+    if anterior.id != ID_SO and anterior.estado == EstadoParticion.LIBRE:
+      anterior.tamano += particion.tamano
+      del self.particiones[indice]
+      particion = anterior
+
+    self.verificar_invariante()
+    return particion
 
   def verificar_invariante(self) -> None:
     if not self.particiones or self.particiones[0].id != ID_SO:

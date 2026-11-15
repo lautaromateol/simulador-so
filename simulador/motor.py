@@ -6,12 +6,16 @@ from enum import Enum, auto
 from simulador.lectura import Proceso
 from simulador.pcb import PCB, Colas, Estado, inicializar
 
+GRADO_MAXIMO = 5
+
 class ErrorMotor(Exception):
     """Error o estado inconsistente en el motor de simulación."""
 
 class TipoEvento(Enum):
     ARRIBO = auto()
+    ADMISION = auto()
     INICIO = auto()
+    DESALOJO = auto()
     FIN = auto()
 
 @dataclass(frozen=True)
@@ -19,6 +23,7 @@ class Evento:
     tiempo: int
     tipo: TipoEvento
     proceso: str
+    grado: int
 
 def clave_id(id_proceso: str) -> list[tuple[int, int, str]]:
     return [
@@ -44,6 +49,7 @@ class Motor:
         self.reloj: int = self.colas.nuevo[0].arribo
         self.ociosos: list[tuple[int, int]] = []
         self.eventos: list[Evento] = []
+        self._arribos_registrados: set[str] = set()
         self._elegir = elegir
         self._desaloja = desaloja
 
@@ -60,6 +66,11 @@ class Motor:
         )
 
     @property
+    def grado_multiprogramacion(self) -> int:
+        c = self.colas
+        return (len(c.listo) + len(c.listo_suspendido) + (1 if c.ejecucion is not None else 0))
+
+    @property
     def log_transiciones(self) -> dict[str, list[Transicion]]:
         pcbs = sorted(self.colas.todos(), key=lambda pcb: clave_id(pcb.id))
         return {pcb.id: list(pcb.historiañ) for pcb in pcbs}
@@ -68,22 +79,27 @@ class Motor:
     def errores_internos(self) -> list[str]:
         return [e for pcb in self.colas.todos() for e in pcb.errores_internos]
 
+    def verificar_multiprogramacion(self) -> None:
+        grado = self.grado_multiprogramacion
+        if grado > GRADO_MAXIMO:
+            raise ErrorMotor(
+                f"Grado  de multiprogramación excedido en t={self.reloj}: "
+                f"{grado} > {GRADO_MAXIMO}"
+            )
+
     def procesar_instante(self) -> None:
         colas = self.colas
         
         en_ejecucion = colas.ejecucion
         if en_ejecucion is not None and en_ejecucion.restante == 0:
-            en_ejecucion.estado = Estado.terminado
+            en_ejecucion.transicionar(Estado.TERMINADO, self.reloj)
             en_ejecucion.finalizacion = self.reloj
             colas.terminado.append(en_ejecucion)
             colas.ejecucion = None
             self._registrar(TipoEvento.FIN, en_ejecucion)
 
-        while colas.nuevo and colas.nuevo[0].arribo == self.reloj:
-            pcb = colas.nuevo.pop(0)
-            pcb.estado = Estado.LISTO
-            colas.listo.append(pcb)
-            self._registrar(TipoEvento.ARRIBO, pcb)
+        self._registrar_arribos()
+        self._admitir()
 
         if (self._desaloja is not None and colas.ejecucion is not None and colas.listo):
             candidato = self._elegir(colas.listo)
@@ -110,8 +126,9 @@ class Motor:
             raise ErrorMotor("Hay procesos listos y la CPU libre: falta llamar a procesar_instante()")
 
     candidatos = []
-    if colas.nuevo:
-        candidatos.append(colas.nuevo[0].arribo)
+    proximo_arribo = next((p.arribo for p in colas.nuevo if p.arribo > self.reloj), None)
+    if proximo_arribo is not None:
+        candidatos.append(proximo_arribo)
     if colas.ejecucion is not None:
         candidatos.append(self.reloj + colas.ejecucion.restante)
     if not candidatos:
@@ -133,6 +150,30 @@ class Motor:
         while not self.TERMINADO:
             self.avanzar_reloj()
             self.procesar_instante()
+
+    def _hay_admisibles(self) -> bool:
+        nuevo = self.colas.nuevo
+        return (
+            bool(nuevo) and nuevo[0].arribo <= self.reloj
+            and self.grado_multiprogramacion < GRADO_MAXIMO
+        )
+
+    def _admitir(self) -> None:
+        colas = self.colas
+        while self._hay_admisibles():
+            pcb = colas.nuevo[0]
+            pcb.transicionar(Estado.LISTO, self.reloj)
+            colas.nuevo.pop(0)
+            colas.listo.append(pcb)
+            self._registrar(TipoEvento.ADMISION, pcb)
+
+    def _registrar_arribos(self) -> None:
+        for pcb in self.colas.nuevo:
+            if pcb.arribo > self.reloj:
+                break
+            if pcb.id not in self._arribos_registrados:
+                self._arribos_registrados.add(pcb.id)
+                self._registrar(TipoEvento.ARRIBO, pcb)
 
     def _registrar(self, tipo: TipoEvento, pcb: PCB) -> None:
         self.eventos.append(Evento(self.reloj, tipo, pcb.id))

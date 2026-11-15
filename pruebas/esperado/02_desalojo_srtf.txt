@@ -1,0 +1,16 @@
+# Caso 02: desalojo SRTF (calculado a mano)
+# CPU: 0-1 P1 | 1-5 P2 | 5-10 P4 | 10-17 P1 | 17-26 P3
+# t=1: llega P2 (4) y a P1 le quedan 7: P1 es desalojado y vuelve a Listo.
+# t=5: termina P2; en Listo P1(7), P3(9), P4(5): se elige P4.
+# t=10: termina P4; se elige P1(7) antes que P3(9).
+========== Informe final ==========
+ Id Arribo Irrupción Finalización Retorno Espera
+ P1      0         8           17      17      9
+ P2      1         4            5       4      0
+ P3      2         9           26      24     15
+ P4      3         5           10       7      2
+Retorno = Finalización - Arribo | Espera = Retorno - Irrupción
+Retorno medio: 13.00 u.t.
+Espera media: 6.50 u.t.
+Throughput: 0.15 procesos/u.t. (4 procesos en 26 u.t., de t=0 a t=26)
+Throughput = terminados / (fin del último - primer arribo)

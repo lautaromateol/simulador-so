@@ -1,0 +1,17 @@
+# Caso 04: Listo/Suspendido por falta de memoria (calculado a mano)
+# CPU: 0-3 P1 | 3-7 P2 | 7-13 PG | 13-23 P3
+# t=0: P1 100K-250K, P2 250K-400K, P3 400K-550K (0K libres). PG queda suspendido.
+# t=3: termina P1, hueco de 150K en 100K: PG (250K) sigue suspendido. Ejecuta P2.
+# t=7: termina P2; su hueco se une con el de P1 (300K en 100K). PG pasa a Listo
+#      en 100K-350K (queda un hueco de 50K en 350K) y ejecuta (6 < 10 de P3).
+========== Informe final ==========
+ Id Arribo Irrupción Finalización Retorno Espera
+ P1      0         3            3       3      0
+ P2      0         4            7       7      3
+ P3      0        10           23      23     13
+ PG      0         6           13      13      7
+Retorno = Finalización - Arribo | Espera = Retorno - Irrupción
+Retorno medio: 11.50 u.t.
+Espera media: 5.75 u.t.
+Throughput: 0.17 procesos/u.t. (4 procesos en 23 u.t., de t=0 a t=23)
+Throughput = terminados / (fin del último - primer arribo)

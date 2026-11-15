@@ -1,3 +1,6 @@
+# Caso integral de 10 procesos: desalojo SRTF, Listo/Suspendido (P4, P6,
+# P8, P9), límite de 5 con procesos esperando en Nuevo (P7..P10) y
+# fusión de huecos. Formato: Id, Tamaño (K), Arribo, Irrupción
 P1,120,0,8
 P2,60,1,4
 P3,200,2,9

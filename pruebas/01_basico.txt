@@ -1,0 +1,8 @@
+# Caso 01: básico
+# Pocos procesos, sin desalojo ni falta de memoria.
+# P2 llega con más tiempo que el restante de P1 (no desaloja) y
+# P3 llega con la CPU libre (tramo de CPU ociosa entre t=7 y t=10).
+# Formato: Id, Tamaño (K), Arribo, Irrupción
+P1,50,0,3
+P2,40,1,4
+P3,30,10,2

@@ -1,0 +1,30 @@
+# Caso integral de 10 procesos (calculado a mano)
+# CPU: 0-1 P1 | 1-5 P2 | 5-8 P5 | 8-10 P7 | 10-17 P1 | 17-22 P4 | 22-23 P10 | 23-29 P8 | 29-36 P6 | 36-40 P9 | 40-49 P3
+# t=1:  P2 (4) desaloja a P1 (7).
+# t=3:  P4 (90K) no entra en el hueco de 70K: Listo/Suspendido.
+# t=5:  termina P2 (hueco 60K en 220K); P6 (150K) queda suspendido. Grado 5/5.
+# t=6, 7, 8, 9: P7, P8, P9 y P10 llegan con el cupo lleno y esperan en Nuevo.
+# t=8:  termina P5 (hueco 70K en 480K); entra P7 (45K) en el hueco de 60K (Best-Fit).
+# t=10: termina P7; entra P8 (80K) pero no hay hueco: Listo/Suspendido.
+# t=17: termina P1; su hueco se une con el de 60K (180K en 100K). Se reactivan
+#       P4 (100K-190K) y P8 (190K-270K); P9 (110K) entra suspendido.
+# t=22: termina P4; entra P10 (25K) en el hueco de 70K (Best-Fit).
+# t=29: termina P8; los huecos de 90K + 80K + 10K se unen (180K) y se reactiva P6.
+# t=36: termina P6 y se reactiva P9.
+========== Informe final ==========
+ Id  Arribo Irrupción Finalización Retorno Espera
+ P1       0         8           17      17      9
+ P2       1         4            5       4      0
+ P3       2         9           49      47     38
+ P4       3         5           22      19     14
+ P5       4         3            8       4      1
+ P6       5         7           36      31     24
+ P7       6         2           10       4      2
+ P8       7         6           29      22     16
+ P9       8         4           40      32     28
+ P10      9         1           23      14     13
+Retorno = Finalización - Arribo | Espera = Retorno - Irrupción
+Retorno medio: 19.40 u.t.
+Espera media: 14.50 u.t.
+Throughput: 0.20 procesos/u.t. (10 procesos en 49 u.t., de t=0 a t=49)
+Throughput = terminados / (fin del último - primer arribo)

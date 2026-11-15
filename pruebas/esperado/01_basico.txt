@@ -1,0 +1,15 @@
+# Caso 01: básico (calculado a mano)
+# CPU: 0-3 P1 | 3-7 P2 | 7-10 ociosa | 10-12 P3
+# t=1: llega P2 (4) y a P1 le quedan 2: no hay desalojo.
+# t=7: termina P2 y la CPU queda ociosa hasta que llega P3 en t=10.
+# Memoria: P1 100K-150K, P2 150K-190K, P3 en el hueco de 450K (ya liberado).
+========== Informe final ==========
+ Id Arribo Irrupción Finalización Retorno Espera
+ P1      0         3            3       3      0
+ P2      1         4            7       6      2
+ P3     10         2           12       2      0
+Retorno = Finalización - Arribo | Espera = Retorno - Irrupción
+Retorno medio: 3.67 u.t.
+Espera media: 0.67 u.t.
+Throughput: 0.25 procesos/u.t. (3 procesos en 12 u.t., de t=0 a t=12)
+Throughput = terminados / (fin del último - primer arribo)

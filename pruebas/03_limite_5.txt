@@ -1,0 +1,12 @@
+# Caso 03: saturación del límite de 5
+# 7 procesos llegan juntos en t=0. Solo se admiten P1..P5
+# (Ejecución + Listo + Listo/Suspendido <= 5); P6 y P7 esperan en Nuevo
+# aunque haya memoria de sobra y P6 sea el más corto.
+# Formato: Id, Tamaño (K), Arribo, Irrupción
+P1,20,0,4
+P2,20,0,2
+P3,20,0,6
+P4,20,0,3
+P5,20,0,5
+P6,20,0,1
+P7,20,0,2

@@ -1,0 +1,9 @@
+# Caso 02: desalojo SRTF
+# Caso clásico de libro (Silberschatz). Procesos chicos para que la
+# memoria no influya: solo actúa el planificador.
+# P2 desaloja a P1 en t=1; al terminar P2 se elige P4 (menor restante).
+# Formato: Id, Tamaño (K), Arribo, Irrupción
+P1,10,0,8
+P2,10,1,4
+P3,10,2,9
+P4,10,3,5

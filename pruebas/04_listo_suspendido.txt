@@ -1,0 +1,10 @@
+# Caso 04: Listo/Suspendido por falta de memoria
+# P1, P2 y P3 (150K c/u) llenan los 450K de usuario. PG (250K) se admite
+# pero queda en Listo/Suspendido. Al terminar P1 (t=3) el hueco de 150K
+# no alcanza; al terminar P2 (t=7) su hueco se une con el de P1 (300K)
+# y PG obtiene partición por Best-Fit.
+# Formato: Id, Tamaño (K), Arribo, Irrupción
+P1,150,0,3
+P2,150,0,4
+P3,150,0,10
+PG,250,0,6

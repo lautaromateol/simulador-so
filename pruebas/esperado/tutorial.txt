@@ -1,0 +1,23 @@
+# Caso del tutorial (calculado a mano)
+# CPU: 0-1 P1 | 1-3 P2 | 3-4 P4 | 4-5 P6 | 5-7 P4 | 7-9 P7 | 9-13 P3 | 13-18 P1 | 18-23 P5
+# t=1:  P2 (2) desaloja a P1 (5).
+# t=2:  P3 (120K) no entra en el hueco de 100K: Listo/Suspendido.
+# t=3:  termina P2 y P3 se reactiva; entran P4 y P5 por Best-Fit.
+# t=4:  P6 (1) desaloja a P4 (2); el grado llega a 5/5 y P7 espera en Nuevo.
+# t=5:  termina P6 y entra P7; P4 y P7 empatan en 2, gana P4 (arribo 3 < 4).
+# t=13: el hueco de P3 (120K) se une con el de P4 (50K): 170K.
+# t=18: el hueco de P1 (200K) se une con el de 170K: 370K.
+========== Informe final ==========
+ Id Arribo Irrupción Finalización Retorno Espera
+ P1      0         6           18      18     12
+ P2      1         2            3       2      0
+ P3      2         4           13      11      7
+ P4      3         3            7       4      1
+ P5      3         5           23      20     15
+ P6      4         1            5       1      0
+ P7      4         2            9       5      3
+Retorno = Finalización - Arribo | Espera = Retorno - Irrupción
+Retorno medio: 8.71 u.t.
+Espera media: 5.43 u.t.
+Throughput: 0.30 procesos/u.t. (7 procesos en 23 u.t., de t=0 a t=23)
+Throughput = terminados / (fin del último - primer arribo)

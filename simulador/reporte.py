@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from simulador.memoria import ID_SO, EstadoParticion
+from simulador.memoria import EstadoParticion
 from simulador.motor import GRADO_MAXIMO, Evento, Motor, TipoEvento, clave_id
 from simulador.pcb import PCB
 from simulador.planificador import clave_srtf
@@ -10,7 +10,8 @@ EVENTOS_VISIBLES = {TipoEvento.ARRIBO, TipoEvento.FIN}
 NOMBRES_EVENTO = {TipoEvento.ARRIBO: "ARRIBO", TipoEvento.FIN: "FIN"}
 PROMPT = "Presione Enter para continuar..."
 PROMPT_FINAL = "Presione Enter para finalizar..."
-ENCABEZADO_MEMORIA = ("Id", "Inicio", "Tamaño", "Estado", "Proceso", "Sobrante")
+ENCABEZADO_MEMORIA = ("Id", "Inicio", "Tamaño", "Estado", "Proceso")
+LIBRE = "Libre"
 ENCABEZADO_INFORME = ("Id", "Arribo", "Irrupción", "Finalización", "Retorno", "Espera")
 
 class ErrorReporte(Exception):
@@ -56,20 +57,10 @@ def formatear_cpu(motor: Motor) -> list[str]:
     return lineas
 
 def filas_memoria(motor: Motor) -> list[tuple[str, ...]]:
-    tamanos = {pcb.id: pcb.tamano for pcb in motor.colas.todos()}
-    filas = []
-    for p in sorted(motor.memoria.particiones, key=lambda p: p.inicio):
-        if p.estado == EstadoParticion.LIBRE:
-            sobrante = p.tamano
-        elif p.id == ID_SO:
-            sobrante = 0
-        else:
-            sobrante = p.tamano - tamanos[p.proceso]
-        filas.append((
-            str(p.id), f"{p.inicio}K", f"{p.tamano}K",
-            p.estado.name, p.proceso or "-", f"{sobrante}K"
-        ))
-    return filas
+    return [
+        (str(p.id), f"{p.inicio}K", f"{p.tamano}K", p.estado.name, p.proceso or LIBRE)
+        for p in sorted(motor.memoria.particiones, key=lambda p: p.inicio)
+    ]
 
 def resumen_memoria(motor: Motor) -> tuple[int, int, int]:
     particiones = motor.memoria.particiones
@@ -81,9 +72,11 @@ def formatear_memoria(motor: Motor) -> list[str]:
     return [
         "Memoria:",
         *_alinear([ENCABEZADO_MEMORIA, *filas_memoria(motor)], izquierda={3, 4}),
-        f"  Total: {total}K"
-        f"  Memoria libre: {libre}K"
-        f"  Mayor hueco disponible: {mayor_hueco}K"
+        (
+            f"  Total: {total}K"
+            f"  Memoria libre: {libre}K"
+            f"  Mayor hueco disponible: {mayor_hueco}K"
+        ),
     ]
 
 def formatear_colas(motor: Motor) -> list[str]:
@@ -100,10 +93,11 @@ def formatear_colas(motor: Motor) -> list[str]:
         f"  Nuevo: {_cola(esperando)}",
         f"  Por arribar: {_lista(por_arribar)}",
         f"  Terminados: {_lista(terminados)}",
-        f"  Grado de multiprogramación: {motor.grado_multiprogramacion}/{GRADO_MAXIMO} "
-        f"  (Ejecución {en_cpu} + Listo {len(colas.listo)} "
-        f"+ Listo/Suspendido {len(colas.listo_suspendido)})"
-
+        (
+            f"  Grado de multiprogramación: {motor.grado_multiprogramacion}/{GRADO_MAXIMO} "
+            f"  (Ejecución {en_cpu} + Listo {len(colas.listo)} "
+            f"+ Listo/Suspendido {len(colas.listo_suspendido)})"
+        ),
     ]
 
 def formatear_estado(motor: Motor) -> list[str]:

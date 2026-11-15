@@ -117,7 +117,7 @@ class Memoria:
         raise ErrorMemoria(f"Id de partición repetido: {p.id}")
       ids.add(p.id)
       if p.tamano <= 0:
-        raise ErrorMemoria(f"La partición {p.id} tiene tamaño invalido: {p.tamano}")
+        raise ErrorMemoria(f"La partición {p.id} tiene tamaño inválido: {p.tamano}")
       if p.inicio < esperado:
         raise ErrorMemoria(
           f"La partición {p.id} se solapa con la anterior "

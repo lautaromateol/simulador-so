@@ -63,19 +63,19 @@ class PCB:
       estado=Estado.NUEVO
     )
 
-def transicionar(self, destino: Estado, tiempo: int) -> Transicion:
-  origen = self.estado
-  if (origen, destino) not in TRANSICIONES_VALIDAS:
-    mensaje = (
-      f"Transición inválida de '{self.id}' en t={tiempo}:"
-      f"{origen.name} -> {destino.name}"
-    )
-    self.errores_internos.append(mensaje)
-    raise ErrorTransicion(mensaje)
-  self.estado = destino
-  transicion = Transicion(tiempo, self.id, origen, destino)
-  self.historial.append(transicion)
-  return transicion
+  def transicionar(self, destino: Estado, tiempo: int) -> Transicion:
+    origen = self.estado
+    if (origen, destino) not in TRANSICIONES_VALIDAS:
+      mensaje = (
+        f"Transición inválida de '{self.id}' en t={tiempo}: "
+        f"{origen.name} -> {destino.name}"
+      )
+      self.errores_internos.append(mensaje)
+      raise ErrorTransicion(mensaje)
+    self.estado = destino
+    transicion = Transicion(tiempo, self.id, origen, destino)
+    self.historial.append(transicion)
+    return transicion
 
 @dataclass
 class Colas:
@@ -85,11 +85,11 @@ class Colas:
   ejecucion: PCB | None = None
   terminado: list[PCB] = field(default_factory=list)
 
-def todos(self) -> list[PCB]:
-  pcbs = [*self.nuevo, *self.listo, *self.listo_suspendido, *self.terminado]
-  if self.ejecucion is not None:
-    pcbs.append(self.ejecucion)
-  return pcbs
+  def todos(self) -> list[PCB]:
+    pcbs = [*self.nuevo, *self.listo, *self.listo_suspendido, *self.terminado]
+    if self.ejecucion is not None:
+      pcbs.append(self.ejecucion)
+    return pcbs
 
 def inicializar(procesos: list[Proceso]) -> Colas:
   colas = Colas()

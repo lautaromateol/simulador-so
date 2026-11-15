@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from simulador.lectura import Proceso
-from simulador.pcb import PCB, Colas, Estado, inicializar
+from simulador.memoria import Memoria
+from simulador.pcb import PCB, Colas, Estado, Transicion, inicializar
 
 GRADO_MAXIMO = 5
 
@@ -14,6 +15,8 @@ class ErrorMotor(Exception):
 class TipoEvento(Enum):
     ARRIBO = auto()
     ADMISION = auto()
+    SUSPENSION = auto()
+    REASIGNACION = auto()
     INICIO = auto()
     DESALOJO = auto()
     FIN = auto()
@@ -45,6 +48,7 @@ class Motor:
         if not procesos:
             raise ErrorMotor("No hay procesos para simular")
         self.colas: Colas = inicializar(procesos)
+        self.memoria: Memoria = Memoria()
         self.colas.nuevo.sort(key=lambda pcb: (pcb.arribo, clave_id(pcb.id)))
         self.reloj: int = self.colas.nuevo[0].arribo
         self.ociosos: list[tuple[int, int]] = []
@@ -73,7 +77,7 @@ class Motor:
     @property
     def log_transiciones(self) -> dict[str, list[Transicion]]:
         pcbs = sorted(self.colas.todos(), key=lambda pcb: clave_id(pcb.id))
-        return {pcb.id: list(pcb.historiañ) for pcb in pcbs}
+        return {pcb.id: list(pcb.historial) for pcb in pcbs}
 
     @property
     def errores_internos(self) -> list[str]:
@@ -83,29 +87,36 @@ class Motor:
         grado = self.grado_multiprogramacion
         if grado > GRADO_MAXIMO:
             raise ErrorMotor(
-                f"Grado  de multiprogramación excedido en t={self.reloj}: "
+                f"Grado de multiprogramación excedido en t={self.reloj}: "
                 f"{grado} > {GRADO_MAXIMO}"
             )
 
     def procesar_instante(self) -> None:
+        self._finalizar()
+        self._reintentar_suspendidos()
+        self._registrar_arribos()
+        self._admitir()
+        self._seleccionar()
+
+    def _finalizar(self) -> None:
         colas = self.colas
-        
         en_ejecucion = colas.ejecucion
         if en_ejecucion is not None and en_ejecucion.restante == 0:
             en_ejecucion.transicionar(Estado.TERMINADO, self.reloj)
             en_ejecucion.finalizacion = self.reloj
+            self._liberar_memoria(en_ejecucion)
             colas.terminado.append(en_ejecucion)
             colas.ejecucion = None
             self._registrar(TipoEvento.FIN, en_ejecucion)
 
-        self._registrar_arribos()
-        self._admitir()
+    def _seleccionar(self) -> None:
+        colas = self.colas
 
         if (self._desaloja is not None and colas.ejecucion is not None and colas.listo):
             candidato = self._elegir(colas.listo)
             if self._desaloja(colas.ejecucion, candidato):
                 desalojado = colas.ejecucion
-                desalojado.estado = Estado.LISTO 
+                desalojado.transicionar(Estado.LISTO, self.reloj)
                 colas.listo.append(desalojado)
                 colas.ejecucion = None
                 self._registrar(TipoEvento.DESALOJO, desalojado)
@@ -115,8 +126,10 @@ class Motor:
             try:
                 colas.listo.remove(pcb)
             except ValueError:
-                raise ErrorMotor ("La política eligió un proceso que no está en listos")
-            pcb.estado = Estado.EJECUCION 
+                raise ErrorMotor("La política eligió un proceso que no está en listos") from None
+            if pcb.particion is None:
+                raise ErrorMotor(f"'{pcb.id}' no tiene partición asignada")
+            pcb.transicionar(Estado.EJECUCION, self.reloj)
             colas.ejecucion = pcb
             self._registrar(TipoEvento.INICIO, pcb)
 
@@ -124,30 +137,32 @@ class Motor:
         colas = self.colas
         if colas.ejecucion is None and colas.listo:
             raise ErrorMotor("Hay procesos listos y la CPU libre: falta llamar a procesar_instante()")
+        if self._hay_admisibles():
+            raise ErrorMotor("Hay procesos para admitir: falta llamar a procesar_instante()")
 
-    candidatos = []
-    proximo_arribo = next((p.arribo for p in colas.nuevo if p.arribo > self.reloj), None)
-    if proximo_arribo is not None:
-        candidatos.append(proximo_arribo)
-    if colas.ejecucion is not None:
-        candidatos.append(self.reloj + colas.ejecucion.restante)
-    if not candidatos:
-        raise ErrorMotor("No hay eventos pendientes para avanzar el reloj")
+        candidatos = []
+        proximo_arribo = next((p.arribo for p in colas.nuevo if p.arribo > self.reloj), None)
+        if proximo_arribo is not None:
+            candidatos.append(proximo_arribo)
+        if colas.ejecucion is not None:
+            candidatos.append(self.reloj + colas.ejecucion.restante)
+        if not candidatos:
+            raise ErrorMotor("No hay eventos pendientes para avanzar el reloj")
 
-    destino = min(candidatos)
-    transcurrido = destino - self.reloj
-    if transcurrido < 0:
-        raise ErrorMotor(f"El próximo evento ({destino}) es anterior al reloj ({self.reloj})")
+        destino = min(candidatos)
+        transcurrido = destino - self.reloj
+        if transcurrido < 0:
+            raise ErrorMotor(f"El próximo evento ({destino}) es anterior al reloj ({self.reloj})")
 
-    if colas.ejecucion is not None:
-        colas.ejecucion.restante -= transcurrido
-    elif transcurrido > 0:
-        self.ociosos.append((self.reloj, destino))
-    self.reloj = destino
+        if colas.ejecucion is not None:
+            colas.ejecucion.restante -= transcurrido
+        elif transcurrido > 0:
+            self.ociosos.append((self.reloj, destino))
+        self.reloj = destino
 
     def ejecutar(self) -> None:
         self.procesar_instante()
-        while not self.TERMINADO:
+        while not self.terminado:
             self.avanzar_reloj()
             self.procesar_instante()
 
@@ -162,10 +177,36 @@ class Motor:
         colas = self.colas
         while self._hay_admisibles():
             pcb = colas.nuevo[0]
+            hueco = self.memoria.mejor_hueco(pcb.tamano)
+            if hueco is not None:
+                pcb.transicionar(Estado.LISTO, self.reloj)
+                pcb.particion = self.memoria.ocupar(hueco.id, pcb.tamano, pcb.id).id
+                colas.nuevo.pop(0)
+                colas.listo.append(pcb)
+                self._registrar(TipoEvento.ADMISION, pcb)
+            else:
+                pcb.transicionar(Estado.LISTO_SUSPENDIDO, self.reloj)
+                colas.nuevo.pop(0)
+                colas.listo_suspendido.append(pcb)
+                self._registrar(TipoEvento.SUSPENSION, pcb)
+
+    def _reintentar_suspendidos(self) -> None:
+        colas = self.colas
+        for pcb in list(colas.listo_suspendido):
+            hueco = self.memoria.mejor_hueco(pcb.tamano)
+            if hueco is None:
+                continue
             pcb.transicionar(Estado.LISTO, self.reloj)
-            colas.nuevo.pop(0)
+            pcb.particion = self.memoria.ocupar(hueco.id, pcb.tamano, pcb.id).id
+            colas.listo_suspendido.remove(pcb)
             colas.listo.append(pcb)
-            self._registrar(TipoEvento.ADMISION, pcb)
+            self._registrar(TipoEvento.REASIGNACION, pcb)
+    
+    def _liberar_memoria(self, pcb: PCB) -> None:
+        if pcb.particion is None:
+            raise ErrorMotor(f"'{pcb.id}' no tiene partición para liberar")
+        self.memoria.liberar(pcb.particion)
+        pcb.particion = None
 
     def _registrar_arribos(self) -> None:
         for pcb in self.colas.nuevo:
@@ -176,4 +217,6 @@ class Motor:
                 self._registrar(TipoEvento.ARRIBO, pcb)
 
     def _registrar(self, tipo: TipoEvento, pcb: PCB) -> None:
-        self.eventos.append(Evento(self.reloj, tipo, pcb.id))
+        self.verificar_multiprogramacion()
+        self.eventos.append(Evento(self.reloj, tipo, pcb.id, self.grado_multiprogramacion))
+

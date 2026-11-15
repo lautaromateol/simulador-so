@@ -28,6 +28,8 @@ def leer_procesos(ruta: str) -> list[Proceso]:
               f"Línea {numero}: se esperaban 4 campos y hay {len(partes)}"
             )
         id_proceso, texto_tam, texto_arribo, texto_irrup = partes
+        if id_proceso == "":
+          raise ErrorLectura(f"Línea {numero}: el Id no puede estar vacío")
         try:
           tamano = int(texto_tam)
           arribo = int(texto_arribo)

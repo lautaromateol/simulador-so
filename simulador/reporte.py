@@ -2,7 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from simulador.memoria import ID_SO, EstadoParticion
-from simulador.motor import GRADO_MAXIMO, Evento, Motor, TipoEvento
+from simulador.motor import GRADO_MAXIMO, Evento, Motor, TipoEvento, clave_id
 from simulador.pcb import PCB
 from simulador.planificador import clave_srtf
 
@@ -10,7 +10,11 @@ EVENTOS_VISIBLES = {TipoEvento.ARRIBO, TipoEvento.FIN}
 NOMBRES_EVENTO = {TipoEvento.ARRIBO: "ARRIBO", TipoEvento.FIN: "FIN"}
 PROMPT = "Presione Enter para continuar..."
 PROMPT_FINAL = "Presione Enter para finalizar..."
-ENCABEZADO_MEMORIA = {"Id", "Inicio", "Tamaño", "Estado", "Proceso", "Sobrante"}
+ENCABEZADO_MEMORIA = ("Id", "Inicio", "Tamaño", "Estado", "Proceso", "Sobrante")
+ENCABEZADO_INFORME = ("Id", "Arribo", "Irrupción", "Finalización", "Retorno", "Espera")
+
+class ErrorReporte(Exception):
+    """El informe no puede generarse"""
 
 @dataclass
 class Bloque:
@@ -57,12 +61,12 @@ def filas_memoria(motor: Motor) -> list[tuple[str, ...]]:
     for p in sorted(motor.memoria.particiones, key=lambda p: p.inicio):
         if p.estado == EstadoParticion.LIBRE:
             sobrante = p.tamano
-        elif p.id == ID_SO
+        elif p.id == ID_SO:
             sobrante = 0
         else:
             sobrante = p.tamano - tamanos[p.proceso]
         filas.append((
-            str(p.id), f"{p.inicio}K", f"{p.tamano}K"
+            str(p.id), f"{p.inicio}K", f"{p.tamano}K",
             p.estado.name, p.proceso or "-", f"{sobrante}K"
         ))
     return filas
@@ -109,6 +113,28 @@ def formatear_estado(motor: Motor) -> list[str]:
         *formatear_memoria(motor)
     ]
     
+def filas_informe(motor: Motor) -> list[tuple[str, int, int, int, int, int]]:
+    if not motor.terminado:
+        raise ErrorReporte("El informe final solo se genera cuando todos los procesos terminaron")
+    filas = []
+    for pcb in sorted(motor.colas.terminado, key=lambda p: clave_id(p.id)):
+        if pcb.finalizacion is None:
+            raise ErrorReporte(f"'{pcb.id}' terminó sin instante de finalización")
+        retorno = pcb.finalizacion - pcb.arribo
+        espera = retorno - pcb.irrupcion
+        if retorno < 0 or espera < 0:
+            raise ErrorReporte(f"Valores negativos en '{pcb.id}': retorno={retorno}, espera={espera}")
+        filas.append((pcb.id, pcb.arribo, pcb.irrupcion, pcb.finalizacion, retorno, espera))
+    return filas
+
+def formatear_informe(motor: Motor) -> str:
+    filas = [tuple(str(valor) for valor in fila) for fila in filas_informe(motor)]
+    return "\n".join([
+        "========== Informe final ==========",
+        *_alinear([ENCABEZADO_INFORME, *filas], izquierda={0}),
+        "Retorno = Finalización - Arribo | Espera = Retorno - Irrupción"
+    ])
+
 
 def formatear_bloque(bloque: Bloque, motor: Motor) -> str:
     lineas = [f"========== t = {bloque.tiempo} =========="]
@@ -118,7 +144,7 @@ def formatear_bloque(bloque: Bloque, motor: Motor) -> str:
     lineas.extend(formatear_estado(motor))
     return "\n".join(lineas)
 
-def ejecutar_pausas( motor: Motor, salida: Callable[[str], object] = print, esperar: Callable[[str], object] = input) -> list[Bloque]:
+def ejecutar_pausas(motor: Motor, salida: Callable[[str], object] = print, esperar: Callable[[str], object] = input) -> list[Bloque]:
     bloques: list[Bloque] = []
     vistos = 0
     motor.procesar_instante()

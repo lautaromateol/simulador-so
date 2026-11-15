@@ -1,0 +1,9 @@
+# Archivo de prueba del tutorial
+# Formato: Id, Tamaño (K), Arribo, Irrupción
+P1,200,0,6
+P2,150,1,2
+P3,120,2,4
+P4,50,3,3
+P5,40,3,5
+P6,30,4,1
+P7,20,4,2

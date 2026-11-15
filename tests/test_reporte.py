@@ -12,6 +12,7 @@ from simulador.reporte import (
   PROMPT_FINAL,
   Bloque,
   ErrorReporte,
+  calcular_metricas,
   ejecutar_pausas,
   filas_informe,
   filas_memoria,
@@ -322,7 +323,7 @@ def test_informe_texto_con_encabezado_y_formulas():
   assert lineas[0] == "========== Informe final =========="
   assert lineas[1].split() == ["Id", "Arribo", "Irrupción", "Finalización", "Retorno", "Espera"]
   assert lineas[2].split() == ["P1", "0", "8", "17", "17", "9"]
-  assert lineas[-1] == "Retorno = Finalización - Arribo | Espera = Retorno - Irrupción"
+  assert "Retorno = Finalización - Arribo | Espera = Retorno - Irrupción" in lineas
 
 
 def test_informe_solo_se_genera_con_todos_terminados():
@@ -342,3 +343,53 @@ def test_informe_rechaza_valores_negativos():
   with pytest.raises(ErrorReporte, match="negativos"):
     filas_informe(corrida.motor)
 
+
+# ---------- HU-18: promedios y throughput ----------
+
+@pytest.mark.parametrize(("procesos", "retorno", "espera", "throughput", "texto"), [
+  # Retornos 17+4+24+7=52, esperas 9+0+15+2=26, 4 procesos de t=0 a t=26.
+  (CASO_LIBRO, 13.0, 6.5, 4 / 26, ("13.00", "6.50", "0.15", 4, 26, 0, 26)),
+  # Retornos 18+2+11+4+20+1+5=61, esperas 12+0+7+1+15+0+3=38, 7 procesos de t=0 a t=23.
+  (leer_procesos("pruebas/tutorial.txt"), 61 / 7, 38 / 7, 7 / 23,
+   ("8.71", "5.43", "0.30", 7, 23, 0, 23)),
+  # Retornos suman 194, esperas 145, 10 procesos de t=0 a t=49.
+  (leer_procesos("pruebas/10_procesos.txt"), 19.4, 14.5, 10 / 49,
+   ("19.40", "14.50", "0.20", 10, 49, 0, 49)),
+], ids=["libro", "tutorial", "10_procesos"])
+def test_prueba_tecnica_promedios_y_throughput_calculados_a_mano(
+  procesos, retorno, espera, throughput, texto
+):
+  corrida = Corrida(procesos)
+
+  metricas = calcular_metricas(corrida.motor)
+  assert metricas.retorno_medio == pytest.approx(retorno)
+  assert metricas.espera_media == pytest.approx(espera)
+  assert metricas.throughput == pytest.approx(throughput)
+
+  r, e, th, n, base, inicio, fin = texto
+  assert formatear_informe(corrida.motor).splitlines()[-4:] == [
+    f"Retorno medio: {r} u.t.",
+    f"Espera media: {e} u.t.",
+    f"Throughput: {th} procesos/u.t. ({n} procesos en {base} u.t., de t={inicio} a t={fin})",
+    "Throughput = terminados / (fin del último - primer arribo)",
+  ]
+
+
+def test_throughput_se_mide_desde_el_primer_arribo():
+  """Supuesto 10: el tiempo previo al primer arribo no cuenta (2/4, no 2/6)."""
+  corrida = Corrida([proceso("P1", 3, 2), proceso("P2", 1, 5)])
+
+  metricas = calcular_metricas(corrida.motor)
+  assert (metricas.inicio, metricas.fin, metricas.tiempo_base) == (2, 6, 4)
+  assert metricas.throughput == 0.5
+  assert "Throughput: 0.50 procesos/u.t. (2 procesos en 4 u.t., de t=2 a t=6)" in (
+    formatear_informe(corrida.motor)
+  )
+
+
+def test_metricas_solo_con_todos_terminados():
+  motor = crear_motor_srtf(CASO_LIBRO)
+  avanzar_hasta(motor, 10)
+
+  with pytest.raises(ErrorReporte):
+    calcular_metricas(motor)

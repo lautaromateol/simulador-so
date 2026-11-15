@@ -121,12 +121,55 @@ def filas_informe(motor: Motor) -> list[tuple[str, int, int, int, int, int]]:
         filas.append((pcb.id, pcb.arribo, pcb.irrupcion, pcb.finalizacion, retorno, espera))
     return filas
 
+@dataclass(frozen=True)
+class Metricas:
+    retorno_medio: float
+    espera_media: float
+    throughput: float
+    terminados: int
+    inicio: int
+    fin: int
+
+    @property
+    def tiempo_base(self) -> int:
+        return self.fin - self.inicio
+
+def calcular_metricas(motor: Motor) -> Metricas:
+    filas = filas_informe(motor)
+    if not filas:
+        raise ErrorReporte("No hay procesos terminados para calcular métricas")
+    inicio = min(f[1] for f in filas)
+    fin = max(f[3] for f in filas)
+    if fin <= inicio:
+        raise ErrorReporte(f"Tiempo base inválido para el throughput: de t={inicio} a t={fin}")
+    return Metricas(
+        retorno_medio=sum(f[4] for f in filas) / len(filas),
+        espera_media=sum(f[5] for f in filas) / len(filas),
+        throughput=len(filas) / (fin - inicio),
+        terminados=len(filas),
+        inicio=inicio,
+        fin=fin,
+    )
+
+def formatear_metricas(metricas: Metricas) -> list[str]:
+    return [
+        f"Retorno medio: {metricas.retorno_medio:.2f} u.t.",
+        f"Espera media: {metricas.espera_media:.2f} u.t.",
+        (
+            f"Throughput: {metricas.throughput:.2f} procesos/u.t. "
+            f"({metricas.terminados} procesos en {metricas.tiempo_base} u.t., "
+            f"de t={metricas.inicio} a t={metricas.fin})"
+        ),
+        "Throughput = terminados / (fin del último - primer arribo)",
+    ]
+
 def formatear_informe(motor: Motor) -> str:
     filas = [tuple(str(valor) for valor in fila) for fila in filas_informe(motor)]
     return "\n".join([
         "========== Informe final ==========",
         *_alinear([ENCABEZADO_INFORME, *filas], izquierda={0}),
-        "Retorno = Finalización - Arribo | Espera = Retorno - Irrupción"
+        "Retorno = Finalización - Arribo | Espera = Retorno - Irrupción",
+        *formatear_metricas(calcular_metricas(motor)),
     ])
 
 

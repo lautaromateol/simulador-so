@@ -1,6 +1,6 @@
 # Simulador de Asignación de Memoria y Planificación de Procesos
 
-Simulador por consola para la materia *Arquitectura de Computadoras y Gestión de Sistemas Operativos* (UTN FRRe - ISI). Simula hasta 10 procesos en un sistema **uniprocesador** con:
+Simulador por consola para la materia *Sistemas Operativos* (UTN FRRe - ISI). Simula hasta 10 procesos en un sistema **uniprocesador** con:
 
 - **Memoria:** particiones variables (MVT) con política **Best-Fit**. RAM de 550K: 100K reservados al SO (0K–99K) y 450K para procesos de usuario (100K–549K).
 - **Planificación:** **SRTF** (*Shortest Remaining Time First*), apropiativo.
